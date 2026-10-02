@@ -1,0 +1,29 @@
+services:
+  api:
+    build: .
+    image: peptide-sequencer:latest
+    # host-side port is configurable: HOST_PORT=9000 docker compose up -d
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    environment:
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_PORT=8000
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import json,urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3); sys.exit(0 if json.load(r).get('status')=='ok' else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 8s
+    restart: unless-stopped
+
+  verify:
+    build: .
+    image: peptide-sequencer:latest
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - BASE_URL=http://api:8000
+    entrypoint: ["python", "scripts/verify.py"]
+    restart: "no"
